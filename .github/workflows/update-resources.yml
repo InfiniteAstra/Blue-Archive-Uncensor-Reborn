@@ -1,0 +1,124 @@
+name: Blue Archive Uncensor
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: blue-archive-resource-update
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ====================================================
+      # Checkout
+      # ====================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # ====================================================
+      # Python
+      # ====================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # ====================================================
+      # Dependencies
+      # ====================================================
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      # ====================================================
+      # 获取当前官方版本
+      # ====================================================
+
+      - name: Get current version
+        id: version
+        run: |
+          python scripts/getCurrentVersion.py \
+            --json-output .current_version.json \
+            --github-output
+
+      # ====================================================
+      # 比较版本 + 生成资源
+      # ====================================================
+
+      - name: Process resources
+        id: process
+        run: |
+          python scripts/update_resources.py \
+            --current-version-file .current_version.json \
+            --github-output
+
+      # ====================================================
+      # 上传 R2
+      # ====================================================
+
+      - name: Upload modified resources to R2
+        if: steps.process.outputs.changed == 'true'
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          python scripts/uploadR2.py
+
+      # ====================================================
+      # 更新 current.txt
+      # ====================================================
+
+      - name: Update current.txt
+        if: steps.process.outputs.changed == 'true'
+        run: |
+          python scripts/updateCurrentVersion.py \
+            --resource-version "${{ steps.version.outputs.resource_version }}" \
+            --table-version "${{ steps.version.outputs.table_version }}"
+
+      # ====================================================
+      # Commit
+      # ====================================================
+
+      - name: Commit current.txt
+        if: steps.process.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add current.txt
+
+          if git diff --cached --quiet; then
+            echo "current.txt 没有变化"
+            exit 0
+          fi
+
+          git commit -m \
+            "Update resources: ResourceVersion ${{ steps.version.outputs.resource_version }}, TableVersion ${{ steps.version.outputs.table_version }}"
+
+      # ====================================================
+      # Push
+      # ====================================================
+
+      - name: Push changes
+        if: steps.process.outputs.changed == 'true'
+        run: |
+          git push origin "HEAD:${GITHUB_REF_NAME}"
