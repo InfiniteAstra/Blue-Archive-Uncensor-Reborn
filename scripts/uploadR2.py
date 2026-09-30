@@ -21,7 +21,7 @@ def required_env(name: str) -> str:
             f"缺少环境变量: {name}"
         )
 
-    return value
+    return value.strip()
 
 
 def upload_file(
