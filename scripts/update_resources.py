@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -108,31 +109,90 @@ SESSION = create_session()
 def download_bytes(
     url: str,
     output: Path,
+    max_attempts: int = 6,
 ) -> None:
 
     print(f"[DOWNLOAD] {url}")
 
-    output.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    output.parent.mkdir(parents=True, exist_ok=True)
 
-    with SESSION.get(
-        url,
-        stream=True,
-        timeout=120,
-    ) as response:
+    tmp = output.with_name(output.name + ".part")
 
-        response.raise_for_status()
+    if tmp.exists():
+        tmp.unlink()
 
-        with output.open("wb") as f:
+    last_exc: Exception | None = None
 
-            for chunk in response.iter_content(
-                chunk_size=1024 * 1024
-            ):
+    for attempt in range(1, max_attempts + 1):
 
-                if chunk:
-                    f.write(chunk)
+        resume_from = tmp.stat().st_size if tmp.exists() else 0
+
+        # identity: 避免压缩导致 Content-Length 与实际字节数对不上
+        headers = {"Accept-Encoding": "identity"}
+
+        if resume_from > 0:
+            headers["Range"] = f"bytes={resume_from}-"
+
+        try:
+            with SESSION.get(
+                url,
+                headers=headers,
+                stream=True,
+                timeout=(15, 120),
+            ) as response:
+
+                if response.status_code == 416:
+                    # Range 不合法，丢弃残留重新下载
+                    tmp.unlink(missing_ok=True)
+                    raise RuntimeError("416 Range Not Satisfiable")
+
+                response.raise_for_status()
+
+                if response.status_code == 206:
+                    mode = "ab"
+                else:
+                    # 200：服务器不支持 Range 或首次下载，从头写
+                    mode = "wb"
+                    resume_from = 0
+
+                content_length = response.headers.get("Content-Length")
+                expected = (
+                    resume_from + int(content_length)
+                    if content_length is not None
+                    else None
+                )
+
+                with tmp.open(mode) as f:
+                    for chunk in response.iter_content(
+                        chunk_size=1024 * 1024
+                    ):
+                        if chunk:
+                            f.write(chunk)
+
+            actual = tmp.stat().st_size
+
+            if expected is not None and actual != expected:
+                raise RuntimeError(
+                    f"文件大小不一致: expected={expected}, actual={actual}"
+                )
+
+            tmp.replace(output)
+            return
+
+        except Exception as exc:
+            last_exc = exc
+            wait = min(2 ** attempt, 30)
+            print(
+                f"  [RETRY {attempt}/{max_attempts}] "
+                f"{type(exc).__name__}: {exc}；{wait}s 后重试"
+            )
+            time.sleep(wait)
+
+    tmp.unlink(missing_ok=True)
+
+    raise RuntimeError(
+        f"下载失败（已重试 {max_attempts} 次）: {url}"
+    ) from last_exc
 
 
 def download_json(
