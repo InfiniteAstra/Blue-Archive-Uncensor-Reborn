@@ -647,13 +647,13 @@ def main() -> int:
     old_catalog_url = (
         f"{OLD_BUNDLE_INFO_BASE}/"
         f"{repository_resource_version}/"
-        "Android/bundleDownloadInfo.json"
+        "bundleDownloadInfo.json"
     )
 
     official_catalog_url = (
         f"{OFFICIAL_BUNDLE_INFO_BASE}/"
         f"{official_resource_version}/"
-        "Android/bundleDownloadInfo.json"
+        "bundleDownloadInfo.json"
     )
 
     old_catalog = download_json(
