@@ -9,6 +9,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 OUT_DIR = ROOT_DIR / "out"
 
+EXCLUSIONS_DIR = ROOT_DIR / "assetsexclusions"
+
 CATALOG_ROOT = (
     ROOT_DIR
     / "modified"
@@ -31,10 +33,31 @@ def calculate_md5(path: Path) -> str:
 
     return md5.hexdigest()
 
+def collect_bundles() -> dict[str, Path]:
+    bundles: dict[str, Path] = {}
+
+    for directory in (OUT_DIR, EXCLUSIONS_DIR):
+
+        if not directory.is_dir():
+            continue
+
+        for path in sorted(directory.rglob("*.bundle")):
+
+            if path.name in bundles:
+                print(
+                    f"[WARNING] 同名 Bundle，使用 {path} "
+                    f"覆盖 {bundles[path.name]}"
+                )
+
+            bundles[path.name] = path
+
+    return bundles
 
 def main() -> None:
-    if not OUT_DIR.exists():
-        print("out/ 不存在，没有需要修改的 Bundle")
+    bundles = collect_bundles()
+
+    if not bundles:
+        print("没有需要更新 catalog 的 Bundle")
         return
 
     catalog_files = sorted(
@@ -79,16 +102,11 @@ def main() -> None:
 
         entry_map[name] = entry
 
-    bundle_files = sorted(
-        OUT_DIR.rglob("*.bundle")
-    )
-
     print(
-        f"发现 {len(bundle_files)} 个修改后的 Bundle"
+        f"发现 {len(bundles)} 个修改后的 Bundle"
     )
 
-    for bundle_path in bundle_files:
-        name = bundle_path.name
+    for name, bundle_path in sorted(bundles.items()):
 
         if name not in entry_map:
             raise RuntimeError(

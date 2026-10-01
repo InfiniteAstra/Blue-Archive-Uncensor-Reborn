@@ -367,6 +367,8 @@ def main() -> int:
         REPLACEMENT_DIR.resolve(),
         (ROOT_DIR / "scripts").resolve(),
         OUT_DIR.resolve(),
+        (ROOT_DIR / "assetsexclusions").resolve(),
+        (ROOT_DIR / "modified").resolve(),
     }
 
     bundle_files: list[Path] = []

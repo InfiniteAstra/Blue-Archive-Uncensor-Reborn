@@ -30,6 +30,7 @@ OUT_DIR = ROOT_DIR / "out"
 
 CURRENT_TXT = ROOT_DIR / "current.txt"
 
+EXCLUSIONS_DIR = ROOT_DIR / "assetsexclusions"
 
 # ============================================================
 # URL
@@ -544,6 +545,59 @@ def copy_modified_bundles() -> int:
     return count
 
 
+def find_exclusion_bundles() -> dict[str, Path]:
+    """返回 {文件名: 路径}。文件名重复直接报错。"""
+
+    result: dict[str, Path] = {}
+
+    if not EXCLUSIONS_DIR.is_dir():
+        return result
+
+    for path in sorted(EXCLUSIONS_DIR.rglob("*.bundle")):
+
+        if not path.is_file():
+            continue
+
+        if path.name in result:
+            raise RuntimeError(
+                f"AssetsExclusions 中存在重名 Bundle: {path.name}\n"
+                f"  {result[path.name]}\n"
+                f"  {path}"
+            )
+
+        result[path.name] = path
+
+    return result
+
+
+def copy_exclusion_bundles(
+    exclusions: dict[str, Path],
+) -> int:
+
+    if not exclusions:
+        return 0
+
+    destination_dir = (
+        MODIFIED_DIR
+        / "AssetBundles"
+        / "Android"
+    )
+
+    destination_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    for name, source in exclusions.items():
+
+        target = destination_dir / name
+
+        shutil.copy2(source, target)
+
+        print(f"[COPY-EXCLUSION] {source} -> {target}")
+
+    return len(exclusions)
+
 # ============================================================
 # 主流程
 # ============================================================
@@ -731,6 +785,21 @@ def main() -> int:
         official_catalog,
     )
 
+    exclusions = find_exclusion_bundles()
+
+    official_names = set(build_bundle_map(official_catalog))
+
+    stale = [n for n in exclusions if n not in official_names]
+
+    if stale:
+        raise RuntimeError(
+            "AssetsExclusions 中的以下 Bundle 不在官方 catalog 中，"
+            "可能官方已更新，请更换文件:\n  "
+            + "\n  ".join(stale)
+        )
+
+    print(f"AssetsExclusions Bundle 数量: {len(exclusions)}")
+
     print()
     print(
         f"共发现 {len(differences)} 个发生变化的 Bundle"
@@ -749,6 +818,10 @@ def main() -> int:
             raise RuntimeError(
                 f"Bundle Name 包含路径: {name}"
             )
+        
+        if name in exclusions:
+            print(f"[SKIP-DOWNLOAD] {name} 在 AssetsExclusions 中")
+            continue        
 
         output = ROOT_DIR / name
 
@@ -786,10 +859,14 @@ def main() -> int:
         copy_modified_bundles()
     )
 
+    exclusion_count = copy_exclusion_bundles(exclusions)
+
     print(
         f"实际修改 Bundle: "
         f"{modified_bundle_count}"
     )
+
+    print(f"直接复制 Bundle: {exclusion_count}")
 
     # ========================================================
     # 6. bundleDownloadInfo.hash
