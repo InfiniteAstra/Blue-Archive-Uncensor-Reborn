@@ -62,8 +62,8 @@ OFFICIAL_TABLE_BUNDLE_BASE = (
 )
 
 OLD_EXCEL_DB_URL = (
-    "http://mx.jvav.net.cn"
-    "/asdf/pool/TableBundles/51/"
+    "https://mx.infastra.de5.net"
+    "/prodm39/pool/TableBundles/51/"
     "517bb1fb1aa4d980ab87644ec10ecb2a"
 )
 
