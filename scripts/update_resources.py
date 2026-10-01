@@ -30,7 +30,7 @@ OUT_DIR = ROOT_DIR / "out"
 
 CURRENT_TXT = ROOT_DIR / "current.txt"
 
-EXCLUSIONS_DIR = ROOT_DIR / "assetsexclusions"
+EXCLUSIONS_DIR = ROOT_DIR / "assetexclusions"
 
 # ============================================================
 # URL
@@ -560,7 +560,7 @@ def find_exclusion_bundles() -> dict[str, Path]:
 
         if path.name in result:
             raise RuntimeError(
-                f"AssetsExclusions 中存在重名 Bundle: {path.name}\n"
+                f"AssetExclusions 中存在重名 Bundle: {path.name}\n"
                 f"  {result[path.name]}\n"
                 f"  {path}"
             )
@@ -793,12 +793,12 @@ def main() -> int:
 
     if stale:
         raise RuntimeError(
-            "AssetsExclusions 中的以下 Bundle 不在官方 catalog 中，"
+            "AssetExclusions 中的以下 Bundle 不在官方 catalog 中，"
             "可能官方已更新，请更换文件:\n  "
             + "\n  ".join(stale)
         )
 
-    print(f"AssetsExclusions Bundle 数量: {len(exclusions)}")
+    print(f"AssetExclusions Bundle 数量: {len(exclusions)}")
 
     print()
     print(
@@ -820,7 +820,7 @@ def main() -> int:
             )
         
         if name in exclusions:
-            print(f"[SKIP-DOWNLOAD] {name} 在 AssetsExclusions 中")
+            print(f"[SKIP-DOWNLOAD] {name} 在 AssetExclusions 中")
             continue        
 
         output = ROOT_DIR / name

@@ -9,7 +9,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 OUT_DIR = ROOT_DIR / "out"
 
-EXCLUSIONS_DIR = ROOT_DIR / "assetsexclusions"
+EXCLUSIONS_DIR = ROOT_DIR / "assetexclusions"
 
 CATALOG_ROOT = (
     ROOT_DIR
