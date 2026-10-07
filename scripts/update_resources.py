@@ -756,9 +756,10 @@ def main() -> int:
 
     MODIFIED_TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
+    # 文件名后缀使用官方 TableManifest 中的 Crc，而不是修改后文件的 MD5
     excel_target = (
         MODIFIED_TABLES_DIR
-        / f"{EXCEL_DB_PREFIX}_{excel_md5}"
+        / f"{EXCEL_DB_PREFIX}_{excel_crc}"
     )
 
     shutil.move(str(excel_new_path), str(excel_target))
