@@ -36,3 +36,6 @@ modified/
 # OS files
 .DS_Store
 Thumbs.db
+
+modified/
+release/

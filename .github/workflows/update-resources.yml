@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          lfs: true # AssetExclusions 中的 .bundle 如果用了 Git LFS，必须开启
 
       # ====================================================
       # Python
@@ -59,7 +60,7 @@ jobs:
             --github-output
 
       # ====================================================
-      # 比较版本 + 生成资源
+      # 比较版本 + 生成资源 + 打包 zip
       # ====================================================
 
       - name: Process resources
@@ -70,21 +71,37 @@ jobs:
             --github-output
 
       # ====================================================
-      # 上传 R2
+      # 发布 GitHub Release
       # ====================================================
 
-      - name: Upload modified resources to R2
+      - name: Publish GitHub Release
         if: steps.process.outputs.changed == 'true'
         env:
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ZIP_PATH: ${{ steps.process.outputs.zip_path }}
+          ZIP_NAME: ${{ steps.process.outputs.zip_name }}
+          GAME_VERSION: ${{ steps.version.outputs.game_version }}
+          RESOURCE_VERSION: ${{ steps.version.outputs.resource_version }}
+          TABLE_VERSION: ${{ steps.version.outputs.table_version }}
         run: |
-          python scripts/uploadR2.py
+          TAG="v${RESOURCE_VERSION}-${TABLE_VERSION}"
+          TITLE="${ZIP_NAME%.zip}"
+          NOTES="GameVersion: ${GAME_VERSION}
+          ResourceVersion: ${RESOURCE_VERSION}
+          TableVersion: ${TABLE_VERSION}"
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} 已存在，覆盖上传资源"
+            gh release upload "${TAG}" "${ZIP_PATH}" --clobber
+          else
+            gh release create "${TAG}" "${ZIP_PATH}" \
+              --target "${GITHUB_SHA}" \
+              --title "${TITLE}" \
+              --notes "${NOTES}"
+          fi
 
       # ====================================================
-      # 更新 current.txt
+      # 更新 current.txt（Release 成功后才推进版本）
       # ====================================================
 
       - name: Update current.txt
