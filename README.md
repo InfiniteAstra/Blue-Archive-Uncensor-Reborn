@@ -2,8 +2,17 @@
 非官方《蔚蓝档案》资源自动化修改
 
 ## 简介
-基于 GitHub Action 实现资源自动化拉取、修改、推送至客户端。
+基于 GitHub Action 实现资源自动化拉取、修改、并生成 .zip 压缩包上传 GitHub Release。
 
+## 用法
+> [!TIP]
+> 本仓库的 Release 仅适用于 Android 平台。iOS 以及 HarmonyOS 平台均未经测试，尽量避免使用。
+> 
+> 在替换资源前，请先确保您可以正常读写`/storage/emulated/0/Android/data/`。
+> 如果无法读写，建议使用 ADB 授予文件管理器权限。
+
+* 定位到`/storage/emulated/0/Android/data/com.RoamingStar.BlueArchive[.bilibili]/files`。正常情况下，这里应当存在 AssetBundles 和 TableBundles 等目录。如果是空白的，说明您的设备未能正常读写`/storage/emulated/0/Android/data/`。
+* 打开从 Release 下载的 .zip 文件，将其中的两个目录（AssetBundles 和 TableBundles）解压到`files`目录中。如果文件管理器提示文件已存在，请务必选择覆盖。
 
 
 ## 使用须知
