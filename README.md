@@ -3,14 +3,7 @@
 蔚蓝档案（国服）反和谐/汉化资源自动构建仓库。
 
 每次游戏更新后，自动比对官方资源清单，把需要修改的 AssetBundle 重新打上替换贴图，
-还原 `ExcelDB.db` 中被和谐的文本，然后：
-
-* 发布 `BlueArchiveCN-Uncensor-yymmdd.zip`（完整补丁）与
-  `BlueArchiveCN-Restore-yymmdd.zip`（官方原版，用于还原）；
-* 把新的 `ResourceVersion` / `TableVersion` 写回 `current.txt`；
-* 把官方清单与修改后的清单写回 `manifest/`，供镜像站直接使用。
-
----
+还原 `ExcelDB.db` 中被和谐的文本。
 
 ## 一、整体流程
 
@@ -57,29 +50,6 @@ update_all.py                     串起以上步骤，写 current.txt 与 $GITH
 继承机制保证每个 Release 都是**当前版本完整的补丁集**（不需要按顺序安装历史包），
 也让镜像站的修改清单始终覆盖所有已修改文件。
 
-### 为什么不是“下载所有差异”
-
-一次版本更新可能改动几百上千个 bundle（累计数 GB），而只有 `assets/replacement/` 里登记的
-贴图目录、以及 `assets/exclusions/` 里登记的 bundle 才需要改动。
-默认只下载“会被实际打包”的文件，其余差异只做统计；
-需要核对全量差异时用 `--all-diffs`。
-
-### 产物命名
-
-| 内容 | 路径 |
-| --- | --- |
-| 补丁 bundle | `out/AssetBundles/<原 bundle 名称>` |
-| 补丁表 | `out/TableBundles/6993339912994747134_<官方 ExcelDB 的 MD5>`（无 `.db` 后缀） |
-| 补丁包 | `dist/BlueArchiveCN-Uncensor-yymmdd.zip`（内部为 `AssetBundles/`、`TableBundles/`） |
-| 还原包 | `dist/BlueArchiveCN-Restore-yymmdd.zip`（同名文件的官方原版） |
-| Release | 名称 `BlueArchiveCN-Uncensor-yymmdd`，tag `r<ResourceVersion>-t<TableVersion>` |
-
-`yymmdd` 取 `ResourceVersion` / `TableVersion` 中较新的日期（可用 `--date` 覆盖），
-因此同一版本重跑会得到同名附件，用 `gh release upload --clobber` 即可幂等重试。
-tag 也是版本相关而不是日期，重试不会产生重复 Release。
-
----
-
 ## 二、目录结构
 
 ```
@@ -101,29 +71,23 @@ scripts/
   update_exceldb.py    用旧库还原 ExcelDB 指定 ID 的数据（可单独当工具用）
   release.py           清单回写、zip 打包、Release 说明
   update_all.py        一键入口（Action 调用它）
-tests/
-  test_offline.py      离线单元测试（不联网）
-  test_integration.py  联网集成测试（BA_IT=1 才运行）
 requirements.txt       UnityPy 等运行期依赖
 ```
 
 > `manifest/` 下的两个清单每次更新会重写，单个约 4.6 MB，仓库体积会随版本推进增长。
 
----
 
 ## 三、在 GitHub 上运行
 
 * `Actions → Update Resources → Run workflow` 可手动触发，支持三个开关：
   * `force`：忽略版本比对强制执行；
   * `skip_table`：只做 AssetBundles；
-  * `all_diffs`：下载所有差异 bundle（谨慎，可能有数 GB）。
-* 默认每 3 小时检查一次（`cron: 0 */3 * * *`）。
+  * `all_diffs`：下载所有差异 bundle。
 * 需要仓库的 `Settings → Actions → General → Workflow permissions` 允许 **Read and write**；
   workflow 已声明 `permissions: contents: write`，用于推送 `current.txt` / `manifest/` 和创建 Release。
 * 发布顺序是“先发 Release，再提交版本号”：如果提交/推送失败，下次运行会重新构建并覆盖同名附件，
   不会出现版本号已更新但 Release 缺失的情况。
 
----
 
 ## 四、本地运行
 
@@ -161,18 +125,6 @@ python scripts/replace_texture.py --bundle-dir work/downloads/bundles \
 # 还原 ExcelDB
 python scripts/update_exceldb.py --old ExcelDB_old.db --new ExcelDB_new.db --out ExcelDB_patched.db
 ```
-
-测试：
-
-```bash
-# 离线单元测试（不联网）
-python -m unittest discover -s tests -v
-
-# 联网集成测试（会下载一个约 3 MB 的官方 bundle）
-BA_IT=1 python -m unittest tests.test_integration -v
-```
-
----
 
 ## 五、维护指南
 
@@ -215,12 +167,23 @@ BA_IT=1 python -m unittest tests.test_integration -v
 * 上一版修改清单过期/缺失 → 从镜像站 `mx.infastra.de5.net` 拉取对应版本的修改清单；
 * 也可以用 `--baseline-manifest` 指定任意官方清单。
 
----
+## 六、替换方法
+> [!TIP]
+> 本仓库的 Release 仅适用于 Android 平台。iOS 以及 HarmonyOS 平台均未经测试，尽量避免使用。
+> 
+> 在替换资源前，请先确保您可以正常读写`/storage/emulated/0/Android/data/`。
+> 如果无法读写，建议使用 ADB 授予文件管理器权限。
 
-## 六、说明
+* 定位到`/storage/emulated/0/Android/data/com.RoamingStar.BlueArchive[.bilibili]/files`。正常情况下，这里应当存在 AssetBundles 和 TableBundles 等目录。如果是空白的，说明您的设备未能正常读写`/storage/emulated/0/Android/data/`。
+* 打开从 Release 下载的 .zip 文件，将其中的两个目录（AssetBundles 和 TableBundles）解压到`files`目录中。如果文件管理器提示文件已存在，请务必选择覆盖。
 
-* CRC 字段实际是文件的 **MD5**（已用官方文件逐一核对）。
-* `replace_texture.py` 固定 `UnityPy==1.25.4`：不同版本写出的 bundle 字节不同，会改变 MD5。
-* 官方清单 URL：`https://static.bluearchive-cn.com/prodm39/AssetBundles/Catalog/{ResourceVersion}/Android/bundleDownloadInfo.json`
-* TableManifest URL：`https://static.bluearchive-cn.com/prodm39/Manifest/TableBundles/{TableVersion}/TableManifest`
-* 旧库（含未和谐文本，固定链接）：`https://mx.infastra.de5.net/prodm39/pool/TableBundles/51/517bb1fb1aa4d980ab87644ec10ecb2a`
+## 七、使用须知
+
+> [!IMPORTANT]
+> 本项目仅供学习和展示用途。
+> 所有通过本项目获取的内容均应仅用于合法和正当的目的。开发者不对任何因使用本项目而引发的直接或间接损失、损害、法律责任或其他后果承担任何责任。
+> 用户在使用本项目时需自行承担风险，并确保遵守所有相关法律法规。严禁将本项目用于任何未经授权或非法的活动。用户应对自身的行为负责。
+
+## 八、版权声明
+* **"Blue Archive"** is a registered trademark of **NEXON Korea Corp. & NEXON GAMES Co., Ltd.** All rights reserved.
+* **“蔚蓝档案”** 是 **上海星啸网络科技有限公司** 的注册商标，版权所有。
