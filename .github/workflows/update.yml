@@ -2,8 +2,8 @@ name: Update Resources
 
 # 定时检查国服资源版本；有变化就重新生成补丁包并发布 Release。
 on:
-  schedule:
-    - cron: "0 */3 * * *"
+ # schedule:
+   # - cron: "0 */3 * * *"
   workflow_dispatch:
     inputs:
       force:
