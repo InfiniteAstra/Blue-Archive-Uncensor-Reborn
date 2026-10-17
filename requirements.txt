@@ -1,3 +1,6 @@
-requests
-Pillow
-UnityPy
+# 运行期依赖（GitHub Action: ubuntu-latest + Python 3.11）
+# UnityPy 版本固定：不同版本写出的 bundle 字节可能不同，会改变 MD5。
+UnityPy==1.25.4
+Pillow>=10,<13
+requests>=2.28,<3
+urllib3>=1.26,<3

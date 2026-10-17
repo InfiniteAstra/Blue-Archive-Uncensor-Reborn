@@ -1,41 +1,19 @@
+# 运行产物（不要提交）
+/work/
+/out/
+/dist/
+/ExcelDB_*.db
+/ExcelDB_patched.db
+
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-
-# Virtual environment
+*.egg-info/
 .venv/
 venv/
-env/
 
-# Python packaging
-*.egg-info/
-dist/
-build/
-
-# Temporary resource files
-*.bundle
-ExcelDB_old.db
-ExcelDB_new.db
-ExcelDB_new_backup.db
-
-# Generated directories
-out/
-modified/
-
-# Temporary version information
-.current_version.json
-
-# Local/editor files
+# 编辑器 / 系统
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# OS files
 .DS_Store
 Thumbs.db
-
-modified/
-release/

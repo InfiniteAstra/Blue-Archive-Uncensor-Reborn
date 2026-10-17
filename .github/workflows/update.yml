@@ -1,0 +1,142 @@
+name: Update Resources
+
+# 定时检查国服资源版本；有变化就重新生成补丁包并发布 Release。
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "忽略版本比对，强制执行"
+        type: boolean
+        default: false
+      skip_table:
+        description: "跳过 TableBundles 阶段"
+        type: boolean
+        default: false
+      all_diffs:
+        description: "下载所有差异 bundle（默认只下载与补丁相关的）"
+        type: boolean
+        default: false
+
+concurrency:
+  group: update-resources
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PYTHONIOENCODING: "utf-8"
+
+jobs:
+  update:
+    name: Check & Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      # 版本没变时只装 requests，省去 UnityPy 等重依赖的安装时间
+      - name: Check version
+        id: version
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet requests
+          python scripts/get_version.py --check --github-output
+
+      - name: Install dependencies
+        if: steps.version.outputs.changed == 'true' || inputs.force
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build patches
+        id: update
+        if: steps.version.outputs.changed == 'true' || inputs.force
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "${{ inputs.force }}" = "true" ]; then args+=(--force); fi
+          if [ "${{ inputs.skip_table }}" = "true" ]; then args+=(--skip-table); fi
+          if [ "${{ inputs.all_diffs }}" = "true" ]; then args+=(--all-diffs); fi
+          python scripts/update_all.py "${args[@]}"
+
+      # 先发布 Release 再提交版本号：
+      # 万一提交/推送失败，下次运行仍会重新构建并覆盖同名附件，不会漏掉发布。
+      - name: Create or update release
+        if: steps.update.outputs.has_package == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.update.outputs.release_tag }}
+          NAME: ${{ steps.update.outputs.release_name }}
+          UNCENSOR: ${{ steps.update.outputs.uncensor_zip }}
+          RESTORE: ${{ steps.update.outputs.restore_zip }}
+          NOTES: ${{ steps.update.outputs.notes_file }}
+        run: |
+          set -euo pipefail
+          assets=()
+          if [ -n "$UNCENSOR" ] && [ -f "$UNCENSOR" ]; then assets+=("$UNCENSOR"); fi
+          if [ -n "$RESTORE" ] && [ -f "$RESTORE" ]; then assets+=("$RESTORE"); fi
+
+          echo "Release: $NAME ($TAG)"
+          printf '  %s\n' "${assets[@]}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release 已存在，更新附件与说明"
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --title "$NAME" --notes-file "$NOTES"
+          elif ! gh release create "$TAG" "${assets[@]}" \
+                 --title "$NAME" --notes-file "$NOTES" --target "$GITHUB_SHA"; then
+            echo "创建失败（可能 tag 已存在），改为更新已有 Release"
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --title "$NAME" --notes-file "$NOTES"
+          fi
+
+          {
+            echo "### 已发布 [$NAME](https://github.com/${{ github.repository }}/releases/tag/$TAG)"
+            echo
+            echo "| 附件 | 大小 |"
+            echo "| --- | --- |"
+            for item in "${assets[@]}"; do
+              echo "| \`$(basename "$item")\` | $(du -h "$item" | cut -f1) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit version & manifests
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add current.txt manifest
+          if git diff --cached --quiet; then
+            echo "版本号与清单没有变化，无需提交"
+            exit 0
+          fi
+          git commit -m "chore: update resources to ${{ steps.update.outputs.resource_version }} / ${{ steps.update.outputs.table_version }}"
+          git push
+
+      - name: Upload release notes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: |
+            dist/release-notes.md
+            work/report/*.json
+          if-no-files-found: ignore
+          retention-days: 7
