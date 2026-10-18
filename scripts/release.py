@@ -169,13 +169,13 @@ def package(
         raise ValueError(f"不支持的压缩方式: {method}")
 
     C.clean_dir(cfg.dist_dir)
-    result.uncensor_zip = cfg.dist_dir / f"BlueArchiveCN-Uncensor-{yymmdd}.zip"
+    result.uncensor_zip = cfg.dist_dir / f"BlueArchiveCN-反和谐包-{yymmdd}.zip"
     result.file_count = _zip_tree(cfg.out_dir, result.uncensor_zip, method=method, level=level)
     result.uncensor_bytes = result.uncensor_zip.stat().st_size
 
     restore_files = list(C.iter_files(cfg.restore_dir))
     if restore_files:
-        result.restore_zip = cfg.dist_dir / f"BlueArchiveCN-Restore-{yymmdd}.zip"
+        result.restore_zip = cfg.dist_dir / f"BlueArchiveCN-恢复包-{yymmdd}.zip"
         _zip_tree(cfg.restore_dir, result.restore_zip, method=method, level=level)
         result.restore_bytes = result.restore_zip.stat().st_size
     else:
@@ -240,7 +240,7 @@ def build_notes(
     excluded = [item for item in assets.shipped if item.kind == "exclusion"]
 
     parts: List[str] = []
-    parts.append(f"# BlueArchiveCN-Uncensor-{yymmdd}")
+    parts.append(f"# BlueArchiveCN-反和谐包-{yymmdd}")
     parts.append("")
     parts.append(
         "> 自动构建 · "
@@ -402,8 +402,8 @@ def build_notes(
 
     parts.append("## 安装说明")
     parts.append("")
-    uncensor_name = package.uncensor_zip.name if package.uncensor_zip else "BlueArchiveCN-Uncensor-*.zip"
-    restore_name = package.restore_zip.name if package.restore_zip else "BlueArchiveCN-Restore-*.zip"
+    uncensor_name = package.uncensor_zip.name if package.uncensor_zip else "BlueArchiveCN-反和谐包-*.zip"
+    restore_name = package.restore_zip.name if package.restore_zip else "BlueArchiveCN-恢复包-*.zip"
     parts.append(INSTALL_HINT.format(uncensor=uncensor_name, restore=restore_name).rstrip())
     parts.append("")
 
