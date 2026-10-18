@@ -187,3 +187,4 @@ python scripts/update_exceldb.py --old ExcelDB_old.db --new ExcelDB_new.db --out
 ## 八、版权声明
 * **"Blue Archive"** is a registered trademark of **NEXON Korea Corp. & NEXON GAMES Co., Ltd.** All rights reserved.
 * **“蔚蓝档案”** 是 **上海星啸网络科技有限公司** 的注册商标，版权所有。
+

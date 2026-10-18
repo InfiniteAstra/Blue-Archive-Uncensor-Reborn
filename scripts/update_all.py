@@ -108,8 +108,13 @@ def run(args: argparse.Namespace) -> int:
 
     yymmdd = C.release_date(versions, args.date)
     tag = f"r{versions['ResourceVersion']}-t{versions['TableVersion']}"
-    release_name = f"BlueArchiveCN-Uncensor-{yymmdd}"
+    release_name = release.release_title(yymmdd)
     C.log(f"\nRelease: {release_name} (tag: {tag})")
+
+    # 附件名必须是 ASCII：GitHub 的上传端点对非 ASCII 名字只返回 HTTP 404。
+    # 这里提前校验，避免下载/打包跑了几分钟才在上传时失败。
+    for kind in ("uncensor", "restore"):
+        release.asset_name(kind, yymmdd)
 
     cfg.prepare()
     for path in (cfg.out_dir, cfg.restore_dir, cfg.dist_dir):
