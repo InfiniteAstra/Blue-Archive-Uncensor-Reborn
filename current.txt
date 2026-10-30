@@ -1,5 +1,5 @@
 ResourceVersion: 202610221737
-TableVersion: 202610221629
+TableVersion: 202610292033
 MediaVersion: 202610221638
 GameVersion: 3.0.2
 PatchVersion: 202609291539
